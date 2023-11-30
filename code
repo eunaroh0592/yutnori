@@ -1,0 +1,630 @@
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+constexpr int PIECENUMBER = 4;
+constexpr int TOTAL = 1000;
+int MINIMAX;
+int MCTS;
+struct node
+{
+	int visits;
+	int wins;
+	int(*player)[31];
+	int thisturn;
+	struct node* parent;
+	struct node* children[5 * PIECENUMBER];
+};
+void inputprobabilityofroundtop();
+void estimateturnremain(double[]);
+double estimateturnremainone(double[], int);
+int move(int, int);
+void gamestart(double[], double[]);
+void turn(double[], double[], int[][31], int, int*, int, int);
+int random(double[]);
+int playerturn(double[], double[], int[][31], int, int, int, int);
+int boardchange(int[][31], int, int, int);
+int possible(int[][31], int, int[]);
+int searchrandom(int[][31], int);
+int weighted(int[][31], int, int);
+double minimax(double[], double[], int[][31], int, int, int);
+double score(double[], int[][31]);
+node* createnodemcts(node*, int[][31], int);
+int mcts(double[], int[][31], int, int);
+void freemalloc(node*);
+int main()
+{
+	srand(time(NULL));
+	inputprobabilityofroundtop();
+}
+void inputprobabilityofroundtop()
+{
+	double probabilityofroundtop = 0;
+	double probability[5] = { 0 };
+	for (int i = 0; i < 5; i++)
+	{
+		probabilityofroundtop = 0.1 * (i + 1);
+		printf("%.1lf", probabilityofroundtop);
+		probability[0] = probabilityofroundtop * probabilityofroundtop * probabilityofroundtop * probabilityofroundtop;
+		probability[1] = 4 * probabilityofroundtop * probabilityofroundtop * probabilityofroundtop * (1 - probabilityofroundtop);
+		probability[2] = 6 * probabilityofroundtop * probabilityofroundtop * (1 - probabilityofroundtop) * (1 - probabilityofroundtop);
+		probability[3] = 4 * probabilityofroundtop * (1 - probabilityofroundtop) * (1 - probabilityofroundtop) * (1 - probabilityofroundtop);
+		probability[4] = (1 - probabilityofroundtop) * (1 - probabilityofroundtop) * (1 - probabilityofroundtop) * (1 - probabilityofroundtop);
+		estimateturnremain(probability);
+		printf("\n");
+	}
+}
+void estimateturnremain(double probability[])
+{
+	double expectationvalue[31] = { 0 };
+	for (int i = 0; i < 31; i++)
+		expectationvalue[i] = estimateturnremainone(probability, i);
+	gamestart(probability, expectationvalue);
+}
+double estimateturnremainone(double probability[], int location)
+{
+	if (location == 30)
+		return 0;
+	double next[5] = { 0 };
+	for (int i = 0; i < 5; i++)
+	{
+		if (move(location, i) == 30)
+			next[i] = 1;
+		else
+		{
+			next[i] = estimateturnremainone(probability, move(location, i));
+			if (i == 1 || i == 2 || i == 3)
+				next[i] += 1;
+		}
+		next[i] *= probability[i];
+	}
+	return next[0] + next[1] + next[2] + next[3] + next[4];
+}
+int move(int location, int movenumber)
+{
+	switch (movenumber)
+	{
+	case 0:
+		switch (location)
+		{
+		case 0:case 1:case 2:case 3:case 4:case 6:case 7: case 8: case 9: case 11: case 12: case 13: case 14: case 15:
+			return location + 5;
+		case 5:
+			return 25;
+		case 10:
+			return 29;
+		case 16:case 17:case 18:case 19:case 20:case 23:case 27:case 28:case 29:case 30:
+			return 30;
+		case 21:
+			return 15;
+		case 22:
+			return 16;
+		case 24:
+			return 18;
+		case 25:
+			return 19;
+		case 26:
+			return 20;
+		default:
+			return -1;
+		}
+	case 1:
+		switch (location)
+		{
+		case 0:case 1:case 2:case 3:case 4:case 6:case 7:case 8:case 9:case 11:case 12:case 13:case 14:case 15:case 16:case 17:case 18:case 19:case 21:case 22:case 24:case 26:case 28:
+			return location + 1;
+		case 5:
+			return 21;
+		case 10:
+			return 26;
+		case 20:case 30:
+			return 30;
+		case 23:
+			return 28;
+		case 25:
+			return 15;
+		case 27:
+			return 23;
+		case 29:
+			return 20;
+		default:
+			return -1;
+		}
+	case 2:
+		switch (location)
+		{
+		case 0:case 1:case 2:case 3:case 4:case 6:case 7:case 8:case 9:case 11:case 12:case 13:case 14:case 15:case 16:case 17:case 18:case 21:case 22:
+			return location + 2;
+		case 5:
+			return 22;
+		case 10:
+			return 27;
+		case 19:case 20:case 29:case 30:
+			return 30;
+		case 23:
+			return 29;
+		case 24:
+			return 15;
+		case 25:
+			return 16;
+		case 26:
+			return 23;
+		case 27:
+			return 28;
+		case 28:
+			return 20;
+		default:
+			return -1;
+		}
+	case 3:
+		switch (location)
+		{
+		case 0:case 1:case 2:case 3:case 4:case 6:case 7:case 8:case 9:case 11:case 12:case 13:case 14:case 15:case 16:case 17:case 21:case 22:
+			return location + 3;
+		case 5:case 10:
+			return 23;
+		case 18:case 19:case 20:case 28:case 29:case 30:
+			return 30;
+		case 23:
+			return 20;
+		case 24:
+			return 16;
+		case 25:
+			return 17;
+		case 26:
+			return 28;
+		case 27:
+			return 29;
+		default:
+			return -1;
+		}
+	case 4:
+		switch (location)
+		{
+		case 0:case 1:case 2:case 3:case 4:case 6:case 7:case 8:case 9:case 11:case 12:case 13:case 14:case 15:case 16:case 21:
+			return location + 4;
+		case 5:
+			return 24;
+		case 10:
+			return 28;
+		case 17:case 18:case 19:case 20:case 23:case 28:case 29:case 30:
+			return 30;
+		case 22:
+			return 15;
+		case 24:
+			return 17;
+		case 25:
+			return 18;
+		case 26:
+			return 29;
+		case 27:
+			return 20;
+		default:
+			return -1;
+		}
+	default:
+		return -1;
+	}
+}
+void gamestart(double probability[], double expectationvalue[])
+{
+	int count = 0;
+	int player[2][31] = { 0 };
+	for (int l = 0; l < 10; l++)
+	{
+		for (int k = 0; k < l; k++)
+		{
+			count = 0;
+			for (int i = 0; i < TOTAL; i++)
+			{
+				player[0][0] = PIECENUMBER;
+				player[1][0] = PIECENUMBER;
+				for (int j = 1; j < 31; j++)
+				{
+					player[0][j] = 0;
+					player[1][j] = 0;
+				}
+				turn(probability, expectationvalue, player, i % 2, &count, l, k);
+			}
+			printf("%d\t", count);
+		}
+		printf("\n");
+	}
+}
+void turn(double probability[], double expectationvalue[], int player[][31], int thisturn, int* count, int l, int k)
+{
+	int nextturn = 0;
+	while (1)
+	{
+		nextturn = playerturn(probability, expectationvalue, player, random(probability), thisturn, l, k);
+		if (player[0][30] == PIECENUMBER)
+		{
+			(*count)++;
+			return;
+		}
+		else if (player[1][30] == PIECENUMBER)
+			return;
+		thisturn = nextturn;
+	}
+}
+int random(double probability[])
+{
+	int random = rand() * 32767 + rand();
+	if (random < 32767 * 32767 * probability[0])
+	{
+		return 0;
+	}
+	else if (random < 32767 * 32767 * (probability[0] + probability[1]))
+	{
+		return 1;
+	}
+	else if (random < 32767 * 32767 * (probability[0] + probability[1] + probability[2]))
+	{
+		return 2;
+	}
+	else if (random < 32767 * 32767 * (probability[0] + probability[1] + probability[2] + probability[3]))
+	{
+		return 3;
+	}
+	else
+		return 4;
+}
+int playerturn(double probability[], double expectationvalue[], int player[][31], int movetile, int thisturn, int l, int k)
+{
+	int fromtile = 0;
+	if (thisturn == 0)
+	{
+		switch (l)
+		{
+		case 0:
+			fromtile = searchrandom(player, thisturn);
+			break;
+		case 1:
+			fromtile = weighted(player, movetile, thisturn);
+			break;
+		case 2:
+			MINIMAX = 1;
+			fromtile = minimax(probability, expectationvalue, player, movetile, MINIMAX, thisturn);
+			break;
+		case 3:
+			MINIMAX = 2;
+			fromtile = minimax(probability, expectationvalue, player, movetile, MINIMAX, thisturn);
+			break;
+		case 4:
+			MINIMAX = 3;
+			fromtile = minimax(probability, expectationvalue, player, movetile, MINIMAX, thisturn);
+			break;
+		case 5:
+			MINIMAX = 4;
+			fromtile = minimax(probability, expectationvalue, player, movetile, MINIMAX, thisturn);
+			break;
+		case 6:
+			MCTS = 10;
+			fromtile = mcts(probability, player, movetile, thisturn);
+			break;
+		case 7:
+			MCTS = 30;
+			fromtile = mcts(probability, player, movetile, thisturn);
+			break;
+		case 8:
+			MCTS = 100;
+			fromtile = mcts(probability, player, movetile, thisturn);
+			break;
+		case 9:
+			MCTS = 300;
+			fromtile = mcts(probability, player, movetile, thisturn);
+			break;
+		}
+	}
+	else
+	{
+		switch (k)
+		{
+		case 0:
+			fromtile = searchrandom(player, thisturn);
+			break;
+		case 1:
+			fromtile = weighted(player, movetile, thisturn);
+			break;
+		case 2:
+			MINIMAX = 1;
+			fromtile = minimax(probability, expectationvalue, player, movetile, MINIMAX, thisturn);
+			break;
+		case 3:
+			MINIMAX = 2;
+			fromtile = minimax(probability, expectationvalue, player, movetile, MINIMAX, thisturn);
+			break;
+		case 4:
+			MINIMAX = 3;
+			fromtile = minimax(probability, expectationvalue, player, movetile, MINIMAX, thisturn);
+			break;
+		case 5:
+			MINIMAX = 4;
+			fromtile = minimax(probability, expectationvalue, player, movetile, MINIMAX, thisturn);
+			break;
+		case 6:
+			MCTS = 10;
+			fromtile = mcts(probability, player, movetile, thisturn);
+			break;
+		case 7:
+			MCTS = 30;
+			fromtile = mcts(probability, player, movetile, thisturn);
+			break;
+		case 8:
+			MCTS = 100;
+			fromtile = mcts(probability, player, movetile, thisturn);
+			break;
+		case 9:
+			MCTS = 300;
+			fromtile = mcts(probability, player, movetile, thisturn);
+			break;
+		}
+	}
+	thisturn = boardchange(player, movetile, thisturn, fromtile);
+	return thisturn;
+}
+int boardchange(int player[][31], int movetile, int thisturn, int fromtile)
+{
+	int totile = move(fromtile, movetile);
+	if (fromtile == 0)
+	{
+		player[thisturn][fromtile]--;
+		player[thisturn][totile]++;
+	}
+	else
+	{
+		player[thisturn][totile] += player[thisturn][fromtile];
+		player[thisturn][fromtile] = 0;
+	}
+	if (player[(thisturn + 1) % 2][totile] != 0 && totile != 30)
+	{
+		player[(thisturn + 1) % 2][0] += player[(thisturn + 1) % 2][totile];
+		player[(thisturn + 1) % 2][totile] = 0;
+		return thisturn;
+	}
+	else if (movetile == 0 || movetile == 4)
+		return thisturn;
+	return (thisturn + 1) % 2;
+}
+int possible(int player[][31], int thisturn, int playervalid[])
+{
+	int j = 0;
+	for (int i = 0; i < 30; i++)
+	{
+		if (player[thisturn][i] > 0)
+		{
+			playervalid[j] = i;
+			j++;
+		}
+	}
+	return j;
+}
+int searchrandom(int player[][31], int thisturn)
+{
+	int playervalid[PIECENUMBER] = { 0 };
+	int j = possible(player, thisturn, playervalid);
+	return playervalid[rand() % j];
+}
+int weighted(int player[][31], int movetile, int thisturn)
+{
+	int j = 0;
+	int fromtile = 0;
+	int totile = 0;
+	int weight = 0;
+	int value = 0;
+	int playervalid[PIECENUMBER] = { 0 };
+	j = possible(player, thisturn, playervalid);
+	value = -2147483648;
+	for (int i = 0; i < j; i++)
+	{
+		weight = 0;
+		totile = move(playervalid[i], movetile);
+		if (player[(thisturn + 1) % 2][totile != 0 && totile != 30])
+			weight += 10;
+		else if (player[thisturn][totile] != 0 && totile != 30)
+			weight += 5 * player[thisturn][playervalid[i]];
+		if (totile == 5)
+			weight += 4;
+		else if (totile == 10)
+			weight += 3;
+		else if (totile == 23)
+			weight += 4;
+		if (weight > value)
+		{
+			value = weight;
+			fromtile = playervalid[i];
+		}
+	}
+	return fromtile;
+}
+double minimax(double probability[], double expectationvalue[], int player[][31], int movetile, int depth, int thisturn)
+{
+	int j = 0;
+	int fromtile = 0;
+	int nextturn = 0;
+	double value = 0;
+	double temp = 0;
+	int playervalid[PIECENUMBER] = { 0 };
+	int playercopy[2][31] = { 0 };
+	if (depth <= 0)
+		return score(expectationvalue, player);
+	else if (player[0][30] == PIECENUMBER)
+		return score(expectationvalue, player);
+	else if (player[1][30] == PIECENUMBER)
+		return score(expectationvalue, player);
+	if (thisturn == 0)
+		value = -2147483648;
+	else
+		value = 2147483647;
+	j = possible(player, thisturn, playervalid);
+	for (int i = 0; i < j; i++)
+	{
+		for (int k = 0; k < 31; k++)
+		{
+			playercopy[0][k] = player[0][k];
+			playercopy[1][k] = player[1][k];
+		}
+		nextturn = boardchange(playercopy, movetile, thisturn, playervalid[i]);
+		temp = 0;
+		for (int k = 0; k < 5; k++)
+			temp += probability[k] * minimax(probability, expectationvalue, playercopy, k, depth - 1, nextturn);
+		if (thisturn == 0)
+		{
+			if (temp > value)
+			{
+				value = temp;
+				fromtile = playervalid[i];
+			}
+		}
+		else
+		{
+			if (temp < value)
+			{
+				value = temp;
+				fromtile = playervalid[i];
+			}
+		}
+	}
+	if (depth >= MINIMAX)
+		return fromtile;
+	return value;
+}
+double score(double expectationvalue[], int player[][31])
+{
+	double result = 0;
+	result = (player[1][0] - player[0][0]) * expectationvalue[0];
+	for (int i = 1; i < 30; i++)
+	{
+		if (player[0][i] != 0)
+			result -= expectationvalue[i];
+		else if (player[1][i] != 0)
+			result += expectationvalue[i];
+	}
+	return result;
+}
+node* createnodemcts(node* parent, int player[][31], int thisturn)
+{
+	node* newnode = (node*)malloc(sizeof(node));
+	if (newnode == NULL)
+		return NULL;
+	newnode->player = (int(*)[31])malloc(2 * 31 * sizeof(int));
+	if (newnode->player == NULL)
+		return NULL;
+	newnode->visits = 0;
+	newnode->wins = 0;
+	for (int i = 0; i < 31; i++)
+	{
+		newnode->player[0][i] = player[0][i];
+		newnode->player[1][i] = player[1][i];
+	}
+	newnode->thisturn = thisturn;
+	newnode->parent = parent;
+	for (int i = 0; i < 5 * PIECENUMBER; i++)
+		newnode->children[i] = NULL;
+	return newnode;
+}
+int mcts(double probability[], int player[][31], int movetile, int thisturn)
+{
+	node* root = createnodemcts(NULL, player, thisturn);
+	node* selection = NULL;
+	node* simulation = NULL;
+	int playervalid[PIECENUMBER] = { 0 };
+	int index = 0;
+	int j = 0;
+	int movetiletemp = 0;
+	int win = 0;
+	int nextturn = 0;
+	double uct = 0;
+	double ucttemp = 0;
+	for (int i = 0; i < MCTS; i++)
+	{
+		selection = root;
+		movetiletemp = movetile;
+		while (1)
+		{
+			j = possible(selection->player, selection->thisturn, playervalid);
+			index = -1;
+			for (int k = 0; k < j; k++)
+			{
+				if (selection->children[movetiletemp * PIECENUMBER + k] == NULL)
+				{
+					index = k;
+					break;
+				}
+			}
+			if (index >= 0)
+				break;
+			if (j == 0)
+				break;
+			index = 0;
+			uct = (double)selection->children[movetiletemp * PIECENUMBER]->wins / selection->children[movetiletemp * PIECENUMBER]->visits + sqrt(2 * log(selection->visits) / selection->children[movetiletemp * PIECENUMBER]->visits);
+			for (int k = 1; k < j; k++)
+			{
+				ucttemp = (double)selection->children[movetiletemp * PIECENUMBER + k]->wins / selection->children[movetiletemp * PIECENUMBER + k]->visits + sqrt(2 * log(selection->visits) / selection->children[movetiletemp * PIECENUMBER + k]->visits);
+				if (ucttemp > uct)
+				{
+					index = k;
+					uct = ucttemp;
+				}
+			}
+			selection = selection->children[movetiletemp * PIECENUMBER + index];
+			movetiletemp = random(probability);
+		}
+		if (selection->player[0][30] == PIECENUMBER)
+			win = 0;
+		else if (selection->player[1][30] == PIECENUMBER)
+			win = 1;
+		else
+		{
+			selection->children[movetiletemp * PIECENUMBER + index] = createnodemcts(selection, selection->player, selection->thisturn);
+			selection = selection->children[movetiletemp * PIECENUMBER + index];
+			selection->thisturn = boardchange(selection->player, movetiletemp, selection->thisturn, playervalid[index]);
+			simulation = createnodemcts(selection, selection->player, selection->thisturn);
+			while (1)
+			{
+				if (simulation->player[0][30] == PIECENUMBER)
+				{
+					win = 0;
+					break;
+				}
+				else if (simulation->player[1][30] == PIECENUMBER)
+				{
+					win = 1;
+					break;
+				}
+				j = possible(simulation->player, simulation->thisturn, playervalid);
+				nextturn = boardchange(simulation->player, random(probability), simulation->thisturn, playervalid[rand() % j]);
+			}
+			freemalloc(simulation);
+		}
+		while (1)
+		{
+			if (selection->parent == NULL)
+				break;
+			if (selection->parent->thisturn == win)
+				selection->wins++;
+			selection->visits++;
+			selection = selection->parent;
+		}
+	}
+	j = possible(root->player, root->thisturn, playervalid);
+	index = 0;
+	for (int i = 1; i < j; i++)
+	{
+		if (root->children[movetile * PIECENUMBER + i]->visits > root->children[movetile * PIECENUMBER + index]->visits)
+			index = i;
+	}
+	freemalloc(root);
+	return playervalid[index];
+}
+void freemalloc(node* root)
+{
+	if (root == NULL)
+		return;
+	for (int i = 0; i < 5 * PIECENUMBER; i++)
+	{
+		freemalloc(root->children[i]);
+	}
+	free(root->player);
+	free(root);
+}
